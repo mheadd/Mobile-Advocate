@@ -292,7 +292,7 @@ if ($advocateBot->getStep() == 4) {
 	$sendToNumber = getDigits($advocateBot->getValue(0));
 	$message = 'Senate: '.$legislatorDetails['sen_firstName'].' '.$legislatorDetails['sen_middleName'].' '.$legislatorDetails['sen_lastName'].' '.$legislatorDetails['sen_suffix'].' ('.$legislatorDetails['sen_district'].'-'.$legislatorDetails['sen_party'].'), ';
 	$message .= 'Assembly: '.$legislatorDetails['amb_firstName'].' '.$legislatorDetails['amb_middleName'].' '.$legislatorDetails['amb_lastName'].' '.$legislatorDetails['amb_suffix'].' ('.$legislatorDetails['amb_district'].'-'.$legislatorDetails['amb_party'].'). ';
-	$message .= 'Dial (646) 434-8986 to contact them.';
+	$message .= 'Dial '.VOTER_NUMBER_TO_CALL. ' to contact them.';
 	$SMSdata = array('botkey' => SEND_SMS_BOT_KEY, 'apimethod' => 'send', 'user' => $sendToNumber, 'network' => 'sms', 'msg' => $message);
 	
 	$sendSMSMessage = new sendsms(SEND_SMS_BASE_URL);

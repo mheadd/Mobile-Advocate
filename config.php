@@ -15,7 +15,7 @@ define("DB_NAME", "");
 define("DB_USER", "");
 define("DB_PASS", "");
 
-// IMified API credentials
+// IMified API credentials.
 define("SEND_SMS_BASE_URL", "https://www.imified.com/api/bot/");
 define("SEND_SMS_USER_NAME", "");
 define("SEND_SMS_PASSWORD", "");
@@ -26,5 +26,8 @@ define("SERVICE_ERROR_MESSAGE", "Sorry. The serice is experiencing problems: ");
 
 // Location to save recording files.
 define("RECORDING_FILE_LOCATION", "");
+
+// Voter number to call.
+define("VOTER_NUMBER_TO_CALL", "");
 
 ?>
