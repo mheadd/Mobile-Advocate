@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<vxml version = "2.1">
+
+<!-- 
+ * Copyright 2009 Mark J. Headd
+ * 
+ * This file is part of MobileAdvocate
+ * 
+ * MobileAdvocate is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * MobileAdvocate is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *  
+-->
+
+
+<property name="inputmodes" value="dtmf"/>
+
+<!-- Variable to hold the caller ID of the calling party -->
+<var name="callerid" expr="session.callerid"/>
+
+<!-- Variables to hold information on caller's representatives -->
+<var name="senatorName"/>
+<var name="senatorParty"/>
+<var name="senatorDistrict"/>
+<var name="senatorPhone"/>
+<var name="assemblyMemberName"/>
+<var name="assemblyMemberParty"/>
+<var name="assemblyMemberDistrict"/>
+<var name="assemblyMemberPhone"/>
+
+<var name="recordingMade" expr="false"/>
+<var name="allowMapOption" expr="false"/>
+
+<var name="callStart"/>
+<var name="callEnd"/>
+<vae name="callLength"/>
+
+<catch event="connection.disconnect">
+	<throw event="goodbye"/>
+</catch>
+
+<catch event="goodbye">
+	<assign name="callEnd" expr="new Date();"/>
+	<assign name="callLength" expr="callEnd - callStart"/>
+	<submit next="subdialogs/logCallRecord.php" namelist="callerid callLength recordingMade allowMapOption"/>
+</catch>
+
+<!-- Noinput / Nomatch handlers -->
+<catch event="noinput nomatch">
+	<reprompt/>
+</catch>
+
+<catch event="noinput nomatch" count="4">
+	<exit/>
+</catch>
+
+<catch event="error.badfetch">
+	<log>*** Error fetching external resource. <value expr="_message"/>***</log>
+	<prompt>The system is experiencing technical difficulties. Please try your call again later.</prompt>
+	<exit/>
+</catch>
+
+<catch event="error.semantic">
+	<log>*** Error: <value expr="_event"/> : <value expr="_message"/>***</log>
+	<prompt>The system is experiencing technical difficulties. Please try your call again later.</prompt>
+	<exit/>
+</catch>
+
+<script>
+
+function validatePhoneNumber(number) {
+	if(number.length != 10) {
+		return false;
+	}
+	return true;
+}
+
+</script>
+
+<form id="welcome">
+	<block>
+	<assign name="callStart" expr="new Date();"/>
+		<prompt>Welcome to mobile advocate.</prompt>
+		<if cond="validatePhoneNumber(callerid)">
+			<goto next="#makeCalls"/>
+		<else/>
+			<goto next="#getPhoneNumber"/>
+		</if>
+	</block>
+</form>
+
+<form id="getPhoneNumber">
+	<field name="getPhoneNumber" type="digits?length=10">
+		<prompt>Please enter the ten digit phone number you are calling from.</prompt>
+		<filled>
+			<assign name="callerid" expr="getPhoneNumber"/>
+			<prompt>Thank you.<break strength="weak"/></prompt>
+			<goto next="#makeCalls"/>
+		</filled>
+	</field>
+</form>
+
+<form id="makeCalls">
+
+<!-- An invalid phone number was used. -->
+<catch event="badNumber">
+	<log>*** ERROR: Invalid phone number - <value expr="callerid"/>.</log>
+	<prompt><audio src="audio/error.wav"/>The telephone number used to look up your representatives, <say-as interpret-as="telephone"><value expr="callerid"/></say-as>, does not appear to be valid.</prompt>
+	<prompt>Please try your call again from a different phone.</prompt>
+	<exit/>
+</catch>
+
+	<!-- Get information on representatives for this phone number -->
+	<subdialog name="lookupPhoneNumber" src="subdialogs/lookupPhoneNumber.php" namelist="callerid" fetchaudio="audio/hold.wav">
+		<prompt>Please wait while information on your representatives is retrieved.</prompt>
+		<filled>
+			<if cond="lookupPhoneNumber.lookupFailed == 1">
+					<throw event="badNumber"/>
+				<else/>
+					<assign name="senatorName" expr="lookupPhoneNumber.senatorName"/>
+					<assign name="senatorParty" expr="lookupPhoneNumber.senatorParty"/>
+					<assign name="senatorDistrict" expr="lookupPhoneNumber.senatorDistrict"/>
+					<assign name="senatorPhone" expr="lookupPhoneNumber.senatorPhone"/>
+					<assign name="assemblyMemberName" expr="lookupPhoneNumber.assemblyMemberName"/>
+					<assign name="assemblyMemberParty" expr="lookupPhoneNumber.assemblyMemberParty"/>
+					<assign name="assemblyMemberDistrict" expr="lookupPhoneNumber.assemblyMemberDistrict"/>
+					<assign name="assemblyMemberPhone" expr="lookupPhoneNumber.assemblyMemberPhone"/>
+			</if>
+		</filled>
+	</subdialog> 
+	
+	<block>
+		<prompt>
+			The information on your representatives in the New York State Legislature has been retrieved.  
+			You will be connected to each representative, one at a time.
+			After each call, remain on the line and additional options will be presented to you.
+			<break strength="weak"/>
+			The first call will begin shortly.
+		</prompt>
+	</block>
+	
+	<!-- Call the first representative's office -->
+	<transfer name="sensate_call" bridge="true" destexpr="'tel:+1' + senatorPhone + ';ani=' + callerid" maxtime="300s" connecttimeout="45s" transferaudio="audio/hold.wav">
+		  <grammar xmlns="http://www.w3.org/2001/06/grammar" xml:lang="en-US" mode="dtmf" root="R_1">
+		      <rule id="R_1">
+		        <one-of>
+		          <item>1</item>
+		        </one-of>
+		      </rule>
+	      </grammar>
+		<prompt>Now calling Senator <value expr="senatorName"/>, <value expr="senatorParty"/> party, district <value expr="senatorDistrict"/><break strength="weak"/></prompt>
+		<prompt>When done, do not hang up. Press one to move on to the next call.</prompt>
+		<prompt>Please wait while you are connected.</prompt>
+		<filled>
+		    <if cond="sensate_call == 'busy'">
+			    <prompt>That line is currently busy.<break strength="weak"/></prompt>
+		    <elseif cond="sensate_call == 'maxtime.disconnect'"/>
+        		<prompt>Your call ran over the maxtime of sixty seconds, and the called party has been disconnected.</prompt>
+		    <elseif cond="sensate_call == 'noanswer'"/>
+		    	<prompt>There was no answer at the number dialed.<break strength="weak"/></prompt>
+		    </if>
+	    </filled>
+	</transfer>
+	
+	<block>
+		<prompt>Your second call will begin shortly.</prompt>
+	</block>
+	
+	<!-- Call the first representative's office -->
+	<transfer name="assembly_call" bridge="true" destexpr="'tel:+1' + assemblyMemberPhone + ';ani=' + callerid" maxtime="300s" connecttimeout="45s" transferaudio="audio/hold.wav">
+		  <grammar xmlns="http://www.w3.org/2001/06/grammar" xml:lang="en-US" mode="dtmf" root="R_1">
+		      <rule id="R_1">
+		        <one-of>
+		          <item>1</item>
+		        </one-of>
+		      </rule>
+	      </grammar>
+		<prompt>Now calling Assembly member <value expr="assemblyMemberName"/>, <value expr="assemblyMemberParty"/> party, district <value expr="assemblyMemberDistrict"/><break strength="weak"/></prompt>
+		<prompt>When done, do not hang up. Press one to hear more options.</prompt>
+		<prompt>Please wait while you are connected.</prompt>
+		<filled>
+		    <if cond="assembly_call == 'busy'">
+			    <prompt>That line is currently busy.<break strength="weak"/></prompt>
+			<elseif cond="assembly_call == 'maxtime.disconnect'"/>
+        		<prompt>Your call ran over the maxtime of sixty seconds, and the called party has been disconnected.</prompt>
+		    <elseif cond="assembly_call == 'noanswer'"/>
+		    	<prompt>There was no answer at the number dialed.<break strength="weak"/></prompt>
+		    </if>
+	    </filled>
+	</transfer>		
+
+	<block>
+		<prompt>Your calls have been completed. Please listen to the following additional options.</prompt>
+		<goto next="#recordMessage"/>
+	</block>
+
+</form>
+
+<form id="recordMessage">
+
+	<field name="makeRecording" type="boolean?y=1">
+		<prompt>Would you like to record a short summary of your phone calls?</prompt>
+		<prompt>Press 1 to record a summary of your conversations. Press 2 to skip this step and go to the next option.</prompt>
+		<filled>
+			<if cond="makeRecording">
+				<assign name="recordingMade" expr="true"/>
+			</if>				
+		</filled>
+	</field>
+	
+	<record name="callSummary" beep="true" dtmfterm="true" maxtime="60s" cond="recordingMade">
+		<prompt>Start your message after the tone. When done, press the pound key.</prompt>
+		<filled>
+			<log>*** Saving recorded message for <value expr="callerid"/> ***</log>
+			<data name="SaveAudio" namelist="callerid callSummary" src="subdialogs/saveAudio.php" method="post" enctype="multipart/form-data"/>
+		</filled>
+	</record>
+
+	<block cond="makeRecording">
+		<prompt>Your message has been recorded.</prompt>
+		<goto next="#mapAddress"/>
+	</block>
+
+</form>
+
+
+<form id="mapAddress">
+
+	<field name="mapAddress" type="boolean?y=1">
+		<prompt>May your address be used in a summary of people that have called your representatives? </prompt>
+		<prompt>Press 1 to authorize your address to appear on a map reresentation of calls.</prompt>
+		<prompt>Otherwise, press 2.</prompt>
+		<filled>
+			<if cond="mapAddress">
+				<assign name="allowMapOption" expr="true"/>
+			</if>			
+		</filled>
+	</field>
+	
+	<block>
+		<prompt>Thank you for calling, goodbye.</prompt>
+		<throw event="goodbye"/>
+	</block>
+
+</form>
+
+</vxml>
