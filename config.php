@@ -3,6 +3,7 @@
 // Constants used to look up representatives for a given address.
 define("REP_LOOKUP_BASE_URL", "http://174.129.25.59/api/ny/2009-2010/%type%/districts/geo/");
 define("REP_LOOKUP_FORMAT", "xml");
+define("FIFTY_STATES_API_KEY", "");
 
 // Constants used to geocode an address.
 define("MAPS_LOOKUP_BASE_URL", "http://maps.google.com/maps/geo");

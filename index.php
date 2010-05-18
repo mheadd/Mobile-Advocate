@@ -183,7 +183,7 @@ if ($advocateBot->getStep() == 3) {
 	$address = $geoXML->Response->Placemark->address;
 	$coordinates = $geoXML->Response->Placemark->Point->coordinates;
 	$coordinatesArray = explode(",", $coordinates);
-	$params = Array('lat' => $coordinatesArray[0], 'long' => $coordinatesArray[1], 'format' => REP_LOOKUP_FORMAT);
+	$params = Array('lat' => $coordinatesArray[0], 'long' => $coordinatesArray[1], 'format' => REP_LOOKUP_FORMAT, 'apikey' => FIFTY_STATES_API_KEY);
 	try {
 			$phone_number = getDigits($advocateBot->getValue(0));
 			$sql = "UPDATE citizen SET lat=$coordinatesArray[0],`long`=$coordinatesArray[1],address='$address',step = step+1 WHERE phone_number = '$phone_number'";
